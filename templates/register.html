@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Register · SmartRide{% endblock %}
+{% block content %}
+<div class="card narrow"><h1>Create account</h1>
+<form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <label>Full name <input name="name" required value="{{ request.form.name }}"></label>
+  <label>Email <input type="email" name="email" required value="{{ request.form.email }}"></label>
+  <label>Phone <input name="phone" required value="{{ request.form.phone }}"></label>
+  <label>I am a
+    <select name="role">
+      <option value="student">Student</option>
+      <option value="driver" {% if request.form.role == 'driver' %}selected{% endif %}>Driver</option>
+    </select></label>
+  <label>Password (min 6 characters) <input type="password" name="password" required minlength="6"></label>
+  <button>Register</button>
+</form>
+<p class="muted">Drivers must be verified by an administrator before publishing trips.</p></div>
+{% endblock %}

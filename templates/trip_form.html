@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card narrow"><h1>{{ 'Edit trip' if editing else 'Publish trip' }}</h1>
+<form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  {% if editing %}
+  <p class="muted">Vehicle: {{ trip.plate_no }} (capacity {{ trip.capacity }}). Students with bookings are notified of changes.</p>
+  {% else %}
+  <label>Vehicle
+    <select name="vehicle_id">{% for v in vehicles %}<option value="{{ v.id }}">{{ v.plate_no }} (capacity {{ v.capacity }})</option>{% endfor %}</select></label>
+  {% endif %}
+  <label>Origin
+    <select name="origin" required><option value="">Choose city</option>
+    {% for c in cities %}<option value="{{ c }}" {% if f.origin == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+  <label>Destination
+    <select name="destination" required><option value="">Choose city</option>
+    {% for c in cities %}<option value="{{ c }}" {% if f.destination == c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select></label>
+  <label>Pickup points (separate with ;) <input name="pickup_points" value="{{ f.pickup_points }}" placeholder="e.g. Lal Chowk; Parimpora"></label>
+  <label>Departure <input type="datetime-local" name="depart_at" required value="{{ f.depart_at }}"></label>
+  <label>Seats offered <input type="number" name="seats_total" min="1" max="20" required value="{{ f.seats_total }}"></label>
+  <button>{{ 'Save changes' if editing else 'Publish' }}</button>
+</form></div>
+{% endblock %}

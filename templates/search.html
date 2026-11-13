@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Find a shared ride</h1>
+<form method="get" class="card filters">
+  <label>From / pickup <input name="origin" list="places" value="{{ q.origin }}" placeholder="e.g. Srinagar or Lal Chowk"></label>
+  <label>To <input name="destination" list="places" value="{{ q.destination }}" placeholder="e.g. Kupwara"></label>
+  <label>Date <input type="date" name="date" value="{{ q.date }}"></label>
+  <label>Leaving after <input type="time" name="time" value="{{ q.time }}"></label>
+  <button>Search</button>
+  <datalist id="places">{% for c in cities %}<option value="{{ c }}">{% endfor %}</datalist>
+</form>
+{% for t in trips %}
+<a class="card trip" href="{{ url_for('trip_detail', trip_id=t.id) }}">
+  <div><strong>{{ t.origin }} -> {{ t.destination }}</strong><br><span class="muted">{{ t.depart_at|dt }} · {{ t.driver_name }}{% if t.rating_count %} · <span class="stars">★</span> {{ t.avg_rating }} ({{ t.rating_count }}){% endif %}</span></div>
+  <span class="pill {{ 'ok' if t.seats_left > 0 else 'full' }}">{{ t.seats_left }} seat{{ '' if t.seats_left == 1 else 's' }} left</span>
+</a>
+{% else %}
+<div class="card muted">No upcoming trips match your search.</div>
+{% endfor %}
+{% endblock %}

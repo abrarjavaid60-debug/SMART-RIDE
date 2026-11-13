@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>My bookings</h1>
+{% for b in bookings %}
+<div class="card trip" style="flex-wrap:wrap">
+  <div><strong>{{ b.origin }} -> {{ b.destination }}</strong><br>
+  <span class="muted">{{ b.depart_at|dt }} · {{ b.seats }} seat(s) · {{ b.driver_name }} ({{ b.plate_no }})</span>
+  {% if b.status == 'Confirmed' %}<br><span class="muted">Driver phone: {{ b.driver_phone }}</span>{% endif %}</div>
+  <div class="right"><span class="pill s-{{ b.status|lower }}">{{ b.status }}</span>
+  {% if b.status in ('Pending','Confirmed') %}
+    <form method="post" action="{{ url_for('cancel_booking', booking_id=b.id) }}" class="inline">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="danger small">Cancel</button></form>
+  {% endif %}</div>
+  {% if b.status == 'Confirmed' and b.trip_status == 'Completed' %}
+  <div style="flex-basis:100%">
+    {% if b.my_stars %}<span class="muted">Your rating:</span> <span class="stars">{{ '★' * b.my_stars }}{{ '☆' * (5 - b.my_stars) }}</span>
+    {% else %}
+    <form method="post" action="{{ url_for('rate', booking_id=b.id) }}" class="rate">
+      <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+      <label style="margin:0">Rate driver
+        <select name="stars">{% for n in (5,4,3,2,1) %}<option value="{{ n }}">{{ n }} ★</option>{% endfor %}</select></label>
+      <input name="comment" maxlength="300" placeholder="Comment (optional)">
+      <button class="small">Submit</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+{% else %}<div class="card muted">No bookings yet. <a href="{{ url_for('search') }}">Find a trip</a>.</div>{% endfor %}
+{% endblock %}

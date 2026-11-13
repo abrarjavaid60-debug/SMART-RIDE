@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card narrow"><h1>Add vehicle</h1>
+<form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <label>Plate number <input name="plate_no" required value="{{ request.form.plate_no }}"></label>
+  <label>Passenger capacity (1-20) <input type="number" name="capacity" min="1" max="20" required value="{{ request.form.capacity }}"></label>
+  <button>Save</button>
+</form></div>
+{% endblock %}

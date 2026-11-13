@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card">
+  <h1>{{ t.origin }} -> {{ t.destination }}</h1>
+  <p><strong>Departs:</strong> {{ t.depart_at|dt }}<br>
+  <strong>Pickup points:</strong> {{ t.pickup_points or '-' }}<br>
+  <strong>Driver:</strong> {{ t.driver_name }}{% if t.rating_count %} (<span class="stars">★</span> {{ t.avg_rating }} from {{ t.rating_count }} rating{{ '' if t.rating_count == 1 else 's' }}){% endif %} · <strong>Vehicle:</strong> {{ t.plate_no }}<br>
+  <strong>Status:</strong> {{ t.status }} · <strong>Seats left:</strong> {{ t.seats_left }} of {{ t.seats_total }}</p>
+  {% if t.status == 'Scheduled' %}
+    {% if g.user and g.user.role == 'student' %}
+      {% if t.seats_left > 0 %}
+      <form method="post" action="{{ url_for('book', trip_id=t.id) }}" class="row">
+        <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+        <label>Seats <input type="number" name="seats" min="1" max="{{ t.seats_left }}" value="1"></label>
+        <button>Request seats</button>
+      </form>
+      <p class="muted">The booking is confirmed only after the driver accepts it.</p>
+      {% else %}<p class="flash error">This trip is full.</p>{% endif %}
+    {% elif not g.user %}<p><a href="{{ url_for('login', next=request.path) }}">Log in as a student</a> to request seats.</p>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

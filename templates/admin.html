@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Administration</h1>
+<div class="stats">
+  <div class="card"><strong>{{ stats.users }}</strong><br>users</div>
+  <div class="card"><strong>{{ stats.trips }}</strong><br>trips</div>
+  <div class="card"><strong>{{ stats.bookings }}</strong><br>bookings</div>
+  <div class="card"><strong>{{ stats.confirmed }}</strong><br>confirmed</div>
+</div>
+<h2>Users and driver verification</h2>
+<div class="scroll"><table>
+<tr><th>Name</th><th>Email</th><th>Role</th><th>Verified</th><th>Active</th><th></th></tr>
+{% for u in users %}
+<tr><td>{{ u.name }}</td><td>{{ u.email }}</td><td>{{ u.role }}</td>
+  <td>{{ 'yes' if u.verified else 'NO' }}</td><td>{{ 'yes' if u.active else 'blocked' }}</td>
+  <td class="actions">
+  {% if u.role == 'driver' and not u.verified %}
+    <form method="post" action="{{ url_for('admin_user_action', user_id=u.id, action='verify') }}" class="inline">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="small">Verify</button></form>{% endif %}
+  {% if u.id != g.user.id %}
+    <form method="post" action="{{ url_for('admin_user_action', user_id=u.id, action='toggle') }}" class="inline">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="small danger">{{ 'Block' if u.active else 'Unblock' }}</button></form>{% endif %}
+  </td></tr>
+{% endfor %}</table></div>
+<h2>Recent booking activity</h2>
+<div class="scroll"><table>
+<tr><th>#</th><th>Student</th><th>Trip</th><th>Seats</th><th>Status</th><th>Created</th></tr>
+{% for b in recent %}<tr><td>{{ b.id }}</td><td>{{ b.student }}</td><td>{{ b.origin }} -> {{ b.destination }} ({{ b.depart_at|dt }})</td>
+<td>{{ b.seats }}</td><td>{{ b.status }}</td><td>{{ b.created_at }}</td></tr>{% endfor %}</table></div>
+{% endblock %}

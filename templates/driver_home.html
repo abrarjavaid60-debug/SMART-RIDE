@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Driver dashboard</h1>
+{% if not g.user.verified %}<div class="flash info">Awaiting administrator verification - you can add vehicles but not publish trips yet.</div>{% endif %}
+<div class="row"><a class="btn" href="{{ url_for('new_vehicle') }}">+ Add vehicle</a>
+<a class="btn" href="{{ url_for('new_trip') }}">+ Publish trip</a></div>
+{% if rating.n %}<p class="muted">Your rating: <span class="stars">★</span> <strong>{{ rating.avg }}</strong> from {{ rating.n }} review{{ '' if rating.n == 1 else 's' }}</p>{% endif %}
+<h2>Pending requests</h2>
+{% for p in pending %}
+<div class="card trip">
+  <div><strong>{{ p.student_name }}</strong> wants {{ p.seats }} seat(s)<br>
+  <span class="muted">{{ p.origin }} -> {{ p.destination }} · {{ p.depart_at|dt }} · {{ p.seats_left }} left · {{ p.student_phone }}</span></div>
+  <div class="right">
+  {% for act in ('accept','reject') %}
+    <form method="post" action="{{ url_for('driver_respond', booking_id=p.id, action=act) }}" class="inline">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button class="small {{ 'danger' if act == 'reject' else '' }}">{{ act|capitalize }}</button></form>
+  {% endfor %}
+  </div>
+</div>
+{% else %}<div class="card muted">No pending requests.</div>{% endfor %}
+<h2>My vehicles</h2>
+{% for v in vehicles %}<div class="card">{{ v.plate_no }} · capacity {{ v.capacity }}</div>
+{% else %}<div class="card muted">No vehicles yet.</div>{% endfor %}
+<h2>My trips</h2>
+{% for t in trips %}
+<div class="card trip">
+  <div><strong>{{ t.origin }} -> {{ t.destination }}</strong><br>
+  <span class="muted">{{ t.depart_at|dt }} · {{ t.seats_left }}/{{ t.seats_total }} seats left</span></div>
+  <div class="right"><span class="pill s-{{ t.status|lower }}">{{ t.status }}</span>
+  {% if t.status == 'Scheduled' %}
+    <a class="btn small" style="padding:.3rem .7rem;font-size:.85rem" href="{{ url_for('edit_trip', trip_id=t.id) }}">Edit</a>
+    <form method="post" action="{{ url_for('driver_cancel_trip', trip_id=t.id) }}" class="inline"
+          onsubmit="return confirm('Cancel this trip and all its bookings?')">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="danger small">Cancel trip</button></form>
+  {% endif %}</div>
+</div>
+{% else %}<div class="card muted">No trips published.</div>{% endfor %}
+{% if reviews %}<h2>Recent reviews</h2>
+{% for r in reviews %}<div class="card"><span class="stars">{{ '★' * r.stars }}{{ '☆' * (5 - r.stars) }}</span> {{ r.name }}{% if r.comment %}<br>{{ r.comment }}{% endif %}<br><span class="muted">{{ r.created_at }}</span></div>{% endfor %}
+{% endif %}
+{% endblock %}

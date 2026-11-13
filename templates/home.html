@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card hero">
+  <h1>Share the ride. Split the journey.</h1>
+  <p class="muted">SmartRide connects students with verified drivers for shared trips between Srinagar, Baramulla and Kupwara.
+  {{ upcoming }} upcoming trip{{ '' if upcoming == 1 else 's' }} available now.</p>
+  <form method="get" action="{{ url_for('search') }}" class="filters">
+    <label>From
+      <select name="origin"><option value="">Any city</option>{% for c in cities %}<option>{{ c }}</option>{% endfor %}</select></label>
+    <label>To
+      <select name="destination"><option value="">Any city</option>{% for c in cities %}<option>{{ c }}</option>{% endfor %}</select></label>
+    <label>Date <input type="date" name="date"></label>
+    <button>Find trips</button>
+  </form>
+</section>
+<h2>Popular routes</h2>
+<div class="chips">
+{% for a in cities %}{% for b in cities if a != b %}<a class="chip" href="{{ url_for('search', origin=a, destination=b) }}">{{ a }} → {{ b }}</a>{% endfor %}{% endfor %}
+</div>
+<h2>How it works</h2>
+<div class="steps">
+  <div class="card"><strong>1. Search</strong><br><span class="muted">Pick your route, date and time to see trips with free seats.</span></div>
+  <div class="card"><strong>2. Request</strong><br><span class="muted">Send a seat request. The driver accepts or rejects it.</span></div>
+  <div class="card"><strong>3. Ride &amp; rate</strong><br><span class="muted">Travel together, then rate your driver after the trip.</span></div>
+</div>
+{% if not g.user %}
+<p><a class="btn" href="{{ url_for('register') }}">Create an account</a> <a href="{{ url_for('login') }}">or log in</a></p>
+{% endif %}
+{% endblock %}
