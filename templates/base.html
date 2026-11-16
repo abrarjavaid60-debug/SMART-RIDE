@@ -18,6 +18,7 @@
       {% if g.user.role == 'admin' %}<a href="{{ url_for('admin_home') }}">Admin</a>{% endif %}
       <a href="{{ url_for('notifications') }}">🔔{% if unread %}<span class="badge">{{ unread }}</span>{% endif %}</a>
       <a href="{{ url_for('change_password') }}">Password</a>
+      <a href="{{ url_for('change_name') }}">Change name</a>
       <form method="post" action="{{ url_for('logout') }}" class="inline">
         <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
         <button class="link">Log out ({{ g.user.name.split()[0] }})</button>

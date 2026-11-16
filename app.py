@@ -453,6 +453,22 @@ def create_app(config=None):
     def forbidden(_e):
         return render_template("error.html", code=403, msg="You do not have access to this page."), 403
 
+
+
+
+    @app.route("/account/name", methods=["GET", "POST"])
+    @login_required()
+    def change_name():
+        if request.method == "POST":
+            new_name = request.form.get("name", "").strip()
+            if not new_name or len(new_name) > 60:
+                flash("Enter a name (up to 60 characters).", "error")
+            else:
+                db().execute("UPDATE users SET name=? WHERE id=?", (new_name, g.user["id"]))
+                flash("Name updated.", "success")
+                return redirect(url_for("change_name"))
+        return render_template("change_name.html")
+    
     @app.errorhandler(404)
     def not_found(_e):
         return render_template("error.html", code=404, msg="Page not found."), 404

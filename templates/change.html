@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card narrow"><h1>Change name</h1>
+<form method="post">
+  <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+  <label>Full name <input name="name" required maxlength="60" value="{{ g.user.name }}"></label>
+  <button>Save name</button>
+</form></div>
+{% endblock %}
