@@ -111,8 +111,7 @@ def create_app(config=None):
     # ---------------- authentication (FR-01) ----------------
     @app.route("/")
     def index():
-        upcoming = db().execute("SELECT COUNT(*) FROM trips WHERE status='Scheduled'").fetchone()[0]
-        return render_template("home.html", upcoming=upcoming)
+        return render_template("home.html")
 
     @app.route("/register", methods=["GET", "POST"])
     def register():

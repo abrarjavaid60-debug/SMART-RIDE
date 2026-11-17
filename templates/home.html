@@ -1,29 +1,34 @@
 {% extends "base.html" %}
+{% block title %}SmartRide - Share the ride{% endblock %}
 {% block content %}
-<section class="card hero">
+<style>
+.fp{position:relative;overflow:hidden;border-radius:18px;padding:2.2rem 1.4rem 5.5rem;color:#fff;
+    background:linear-gradient(160deg,#0b1730 0%,#12365a 55%,#0f766e 100%);box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.fp h1{font-size:2rem;margin:0 0 .4rem;color:#fff}
+.fp p{margin:0 0 1.1rem;color:#d6e4f5;max-width:34rem}
+.fp .go{display:inline-block;background:#fbbf24;color:#1c1400;font-weight:700;padding:.65rem 1.3rem;border-radius:10px;text-decoration:none}
+.fp svg{position:absolute;left:0;right:0;bottom:0;width:100%;height:90px}
+.fp-routes{display:flex;flex-wrap:wrap;gap:.5rem;margin:.9rem 0 0}
+.fp-routes a{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.28);color:#fff;text-decoration:none;padding:.3rem .8rem;border-radius:99px;font-size:.88rem}
+.fp-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.7rem;margin-top:1rem}
+</style>
+<section class="fp">
   <h1>Share the ride. Split the journey.</h1>
-  <p class="muted">SmartRide connects students with verified drivers for shared trips between Srinagar, Baramulla and Kupwara.
-  {{ upcoming }} upcoming trip{{ '' if upcoming == 1 else 's' }} available now.</p>
-  <form method="get" action="{{ url_for('search') }}" class="filters">
-    <label>From
-      <select name="origin"><option value="">Any city</option>{% for c in cities %}<option>{{ c }}</option>{% endfor %}</select></label>
-    <label>To
-      <select name="destination"><option value="">Any city</option>{% for c in cities %}<option>{{ c }}</option>{% endfor %}</select></label>
-    <label>Date <input type="date" name="date"></label>
-    <button>Find trips</button>
-  </form>
+  <p>Student shared transport between Srinagar, Baramulla and Kupwara. Find a seat, book it and travel together.</p>
+  <a class="go" href="{{ url_for('search') }}">Find a ride</a>
+  <div class="fp-routes">
+    {% for a, b in [('Srinagar','Baramulla'), ('Baramulla','Srinagar'), ('Srinagar','Kupwara'), ('Kupwara','Srinagar'), ('Baramulla','Kupwara'), ('Kupwara','Baramulla')] %}
+    <a href="{{ url_for('search', origin=a, destination=b) }}">{{ a }} &rarr; {{ b }}</a>
+    {% endfor %}
+  </div>
+  <svg viewBox="0 0 800 90" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 90 L0 55 L90 20 L170 60 L260 10 L360 62 L450 28 L560 70 L660 22 L800 58 L800 90 Z" fill="rgba(255,255,255,.16)"/>
+    <path d="M0 90 L0 72 L120 45 L220 75 L330 40 L440 78 L560 48 L680 80 L800 52 L800 90 Z" fill="rgba(255,255,255,.28)"/>
+  </svg>
 </section>
-<h2>Popular routes</h2>
-<div class="chips">
-{% for a in cities %}{% for b in cities if a != b %}<a class="chip" href="{{ url_for('search', origin=a, destination=b) }}">{{ a }} → {{ b }}</a>{% endfor %}{% endfor %}
+<div class="fp-cards">
+  <div class="card"><strong>Verified drivers</strong><br><span class="muted">Every driver is approved by an administrator.</span></div>
+  <div class="card"><strong>Safe seat booking</strong><br><span class="muted">A vehicle can never be overbooked.</span></div>
+  <div class="card"><strong>Know the timing</strong><br><span class="muted">See exactly when each trip departs.</span></div>
 </div>
-<h2>How it works</h2>
-<div class="steps">
-  <div class="card"><strong>1. Search</strong><br><span class="muted">Pick your route, date and time to see trips with free seats.</span></div>
-  <div class="card"><strong>2. Request</strong><br><span class="muted">Send a seat request. The driver accepts or rejects it.</span></div>
-  <div class="card"><strong>3. Ride &amp; rate</strong><br><span class="muted">Travel together, then rate your driver after the trip.</span></div>
-</div>
-{% if not g.user %}
-<p><a class="btn" href="{{ url_for('register') }}">Create an account</a> <a href="{{ url_for('login') }}">or log in</a></p>
-{% endif %}
 {% endblock %}
