@@ -3,7 +3,7 @@
 <div class="card">
   <h1>{{ t.origin }} -> {{ t.destination }}</h1>
   <p><strong>Departs:</strong> {{ t.depart_at|dt }}<br>
-  <strong>Pickup points:</strong> {{ t.pickup_points or '-' }}<br>
+  <strong>Departs:</strong> {{ t.depart_at|dt }} ({{ t.depart_at|departs_in }})<br>
   <strong>Driver:</strong> {{ t.driver_name }}{% if t.rating_count %} (<span class="stars">★</span> {{ t.avg_rating }} from {{ t.rating_count }} rating{{ '' if t.rating_count == 1 else 's' }}){% endif %} · <strong>Vehicle:</strong> {{ t.plate_no }}<br>
   <strong>Status:</strong> {{ t.status }} · <strong>Seats left:</strong> {{ t.seats_left }} of {{ t.seats_total }}</p>
   {% if t.status == 'Scheduled' %}

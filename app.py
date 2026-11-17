@@ -89,9 +89,20 @@ def create_app(config=None):
                 (g.user["id"],)).fetchone()[0]
         return {"csrf_token": csrf_token, "unread": unread, "cities": svc.CITIES}
 
-    @app.template_filter("dt")
-    def fmt_dt(s):
-        return s.replace("T", " ") if s else ""
+    @app.template_filter("departs_in")
+    def departs_in(s):
+        try:
+            mins = int((svc.parse_dt(s) - datetime.now()).total_seconds() // 60)
+        except (TypeError, ValueError):
+            return ""
+        if mins < 0:
+            return "Departed"
+        if mins < 60:
+            return f"Departs in {mins} min"
+        if mins < 24 * 60:
+            return f"Departs in {mins // 60} h {mins % 60} min"
+        days = mins // (24 * 60)
+        return f"Departs in {days} day{'s' if days != 1 else ''}"
 
     def login_required(*roles):
         def deco(f):
