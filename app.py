@@ -7,13 +7,14 @@ from datetime import datetime
 from functools import wraps
 
 from flask import (Flask, abort, flash, g, redirect, render_template, request,
-                   session, url_for)
+                   session, url_for, jsonify)
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import db as database
 import services as svc
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+PHONE_RE = re.compile(r"^\+?\d[\d \-]{5,16}\d$")
 
 
 def _persistent_secret(instance_path):
@@ -73,7 +74,8 @@ def create_app(config=None):
         if not app.config["CSRF_ENABLED"] or request.method != "POST":
             return
         token = session.get("_csrf")
-        if not token or not secrets.compare_digest(token, request.form.get("_csrf", "")):
+        sent = request.form.get("_csrf") or request.headers.get("X-CSRF-Token", "")
+        if not token or not secrets.compare_digest(token, sent):
             abort(400, "Invalid or missing CSRF token.")
 
     @app.context_processor
@@ -88,6 +90,10 @@ def create_app(config=None):
                 "SELECT COUNT(*) FROM notifications WHERE user_id=? AND is_read=0",
                 (g.user["id"],)).fetchone()[0]
         return {"csrf_token": csrf_token, "unread": unread, "cities": svc.CITIES}
+
+    @app.template_filter("dt")
+    def fmt_dt(s):
+        return s.replace("T", " ") if s else ""
 
     @app.template_filter("departs_in")
     def departs_in(s):
@@ -188,7 +194,7 @@ def create_app(config=None):
     # ---------------- search & booking (FR-03, FR-04, FR-07) ----------------
     @app.route("/trips")
     def search():
-        q = {k: request.args.get(k, "").strip() for k in ("origin", "destination", "date", "time")}
+        q = {k: request.args.get(k, "").strip() for k in ("origin", "destination", "date", "time", "sort")}
         trips = svc.search_trips(db(), **q)
         return render_template("search.html", trips=trips, q=q)
 
@@ -197,7 +203,8 @@ def create_app(config=None):
         trip = svc.get_trip(db(), trip_id)
         if trip is None:
             abort(404)
-        return render_template("trip_detail.html", t=trip)
+        allowed = svc.can_track(db(), g.user, trip) if g.user else False
+        return render_template("trip_detail.html", t=trip, can_track=allowed)
 
     @app.route("/trips/<int:trip_id>/book", methods=["POST"])
     @login_required("student")
@@ -215,7 +222,8 @@ def create_app(config=None):
     def my_bookings():
         rows = db().execute(
             "SELECT b.*, t.origin, t.destination, t.depart_at, t.status AS trip_status, "
-            "u.name AS driver_name, u.phone AS driver_phone, v.plate_no, r.stars AS my_stars "
+            "u.name AS driver_name, u.phone AS driver_phone, v.plate_no, r.stars AS my_stars, "
+            "EXISTS (SELECT 1 FROM trip_locations l WHERE l.trip_id=t.id) AS live "
             "FROM bookings b JOIN trips t ON t.id=b.trip_id JOIN vehicles v ON v.id=t.vehicle_id "
             "LEFT JOIN ratings r ON r.booking_id=b.id "
             "JOIN users u ON u.id=v.driver_id WHERE b.student_id=? ORDER BY b.created_at DESC",
@@ -270,7 +278,7 @@ def create_app(config=None):
             "SELECT r.stars, r.comment, r.created_at, u.name FROM ratings r JOIN users u ON u.id=r.student_id "
             "WHERE r.driver_id=? ORDER BY r.id DESC LIMIT 5", (g.user["id"],)).fetchall()
         return render_template("driver_home.html", vehicles=vehicles, trips=trips, pending=pending,
-                               rating=rating, reviews=reviews)
+                               rating=rating, reviews=reviews, now=datetime.now().strftime(svc.FMT))
 
     @app.route("/driver/vehicles/new", methods=["GET", "POST"])
     @login_required("driver")
@@ -414,6 +422,103 @@ def create_app(config=None):
                 return redirect(url_for("index"))
         return render_template("change_password.html")
 
+    # ---------------- profile (students, drivers, admins) ----------------
+    def validate_profile(f, user_id):
+        name = f.get("name", "").strip()
+        phone = f.get("phone", "").strip()
+        email = f.get("email", "").strip().lower()
+        city = f.get("city", "").strip()
+        institution = f.get("institution", "").strip()
+        if not name or len(name) > 60:
+            return None, "Enter a name (up to 60 characters)."
+        if not PHONE_RE.match(phone):
+            return None, "Enter a valid phone number (digits, spaces, dashes; optional leading +)."
+        if not EMAIL_RE.match(email):
+            return None, "Enter a valid email address."
+        if db().execute("SELECT 1 FROM users WHERE email=? AND id<>?", (email, user_id)).fetchone():
+            return None, "That email is already used by another account."
+        if city and city not in svc.CITIES:
+            return None, "Choose a city from the list."
+        if len(institution) > 80:
+            return None, "College / institute name is too long."
+        return (name, phone, email, city, institution), None
+
+    @app.route("/account/profile", methods=["GET", "POST"])
+    @login_required()
+    def profile():
+        f = request.form if request.method == "POST" else g.user
+        if request.method == "POST":
+            values, error = validate_profile(f, g.user["id"])
+            if error:
+                flash(error, "error")
+            else:
+                db().execute("UPDATE users SET name=?, phone=?, email=?, city=?, institution=? WHERE id=?",
+                             (*values, g.user["id"]))
+                flash("Profile updated.", "success")
+                return redirect(url_for("profile"))
+        return render_template("profile.html", f=f)
+
+    @app.route("/about")
+    def about():
+        return render_template("about.html")
+
+    # ---------------- live tracking ----------------
+    @app.route("/trips/<int:trip_id>/track")
+    @login_required()
+    def track_trip(trip_id):
+        trip = svc.get_trip(db(), trip_id)
+        if trip is None:
+            abort(404)
+        if not svc.can_track(db(), g.user, trip):
+            abort(403)
+        return render_template("track.html", t=trip, is_driver=trip["driver_id"] == g.user["id"],
+                               origin_xy=svc.CITY_COORDS.get(trip["origin"]),
+                               dest_xy=svc.CITY_COORDS.get(trip["destination"]))
+
+    @app.route("/api/trips/<int:trip_id>/location", methods=["GET"])
+    @login_required()
+    def api_get_location(trip_id):
+        trip = svc.get_trip(db(), trip_id)
+        if trip is None or not svc.can_track(db(), g.user, trip):
+            return jsonify(error="Not allowed."), 403
+        loc = svc.get_location(db(), trip_id)
+        return jsonify(sharing=loc is not None, status=trip["status"], **(loc or {}))
+
+    @app.route("/api/trips/<int:trip_id>/location", methods=["POST"])
+    @login_required("driver")
+    def api_set_location(trip_id):
+        data = request.get_json(silent=True) or {}
+        try:
+            first = svc.set_location(db(), g.user["id"], trip_id, data.get("lat"), data.get("lng"), data.get("accuracy"))
+        except svc.BookingError as e:
+            return jsonify(error=str(e)), 400
+        except PermissionError:
+            return jsonify(error="Not your trip."), 403
+        return jsonify(ok=True, first=first)
+
+    @app.route("/api/trips/<int:trip_id>/location/stop", methods=["POST"])
+    @login_required("driver")
+    def api_stop_location(trip_id):
+        try:
+            svc.stop_location(db(), g.user["id"], trip_id)
+        except svc.BookingError as e:
+            return jsonify(error=str(e)), 400
+        except PermissionError:
+            return jsonify(error="Not your trip."), 403
+        return jsonify(ok=True)
+
+    @app.route("/driver/trips/<int:trip_id>/finish", methods=["POST"])
+    @login_required("driver")
+    def driver_finish_trip(trip_id):
+        try:
+            n = svc.complete_trip(db(), g.user["id"], trip_id)
+            flash(f"Trip marked as completed; {n} passenger(s) can now rate you.", "success")
+        except svc.BookingError as e:
+            flash(str(e), "error")
+        except PermissionError:
+            abort(403)
+        return redirect(url_for("driver_home"))
+
     # ---------------- notifications (FR-08) ----------------
     @app.route("/notifications", methods=["GET", "POST"])
     @login_required()
@@ -459,12 +564,43 @@ def create_app(config=None):
             abort(400)
         return redirect(url_for("admin_home"))
 
-    @app.errorhandler(403)
-    def forbidden(_e):
-        return render_template("error.html", code=403, msg="You do not have access to this page."), 403
+    @app.route("/admin/user/<int:user_id>/edit", methods=["GET", "POST"])
+    @login_required("admin")
+    def admin_edit_user(user_id):
+        user = db().execute("SELECT * FROM users WHERE id=?", (user_id,)).fetchone()
+        if user is None:
+            abort(404)
+        f = request.form if request.method == "POST" else user
+        if request.method == "POST":
+            values, error = validate_profile(f, user_id)
+            if error:
+                flash(error, "error")
+            else:
+                db().execute("UPDATE users SET name=?, phone=?, email=?, city=?, institution=? WHERE id=?",
+                             (*values, user_id))
+                flash("User details updated.", "success")
+                return redirect(url_for("admin_home"))
+        return render_template("admin_user_edit.html", f=f, u=user)
 
-
-
+    @app.route("/admin/export.csv")
+    @login_required("admin")
+    def admin_export_csv():
+        import csv
+        import io
+        from flask import Response
+        rows = db().execute(
+            "SELECT b.id, s.name AS student, t.origin, t.destination, t.depart_at, "
+            "b.seats, b.status, b.created_at "
+            "FROM bookings b JOIN users s ON s.id=b.student_id JOIN trips t ON t.id=b.trip_id "
+            "ORDER BY b.id").fetchall()
+        out = io.StringIO()
+        w = csv.writer(out)
+        w.writerow(["Booking", "Student", "From", "To", "Departure", "Seats", "Status", "Created"])
+        for r in rows:
+            w.writerow([r["id"], r["student"], r["origin"], r["destination"], r["depart_at"],
+                        r["seats"], r["status"], r["created_at"]])
+        return Response(out.getvalue(), mimetype="text/csv",
+                        headers={"Content-Disposition": "attachment; filename=smartride_bookings.csv"})
 
     @app.route("/account/name", methods=["GET", "POST"])
     @login_required()
@@ -478,7 +614,11 @@ def create_app(config=None):
                 flash("Name updated.", "success")
                 return redirect(url_for("change_name"))
         return render_template("change_name.html")
-    
+
+    @app.errorhandler(403)
+    def forbidden(_e):
+        return render_template("error.html", code=403, msg="You do not have access to this page."), 403
+
     @app.errorhandler(404)
     def not_found(_e):
         return render_template("error.html", code=404, msg="Page not found."), 404
